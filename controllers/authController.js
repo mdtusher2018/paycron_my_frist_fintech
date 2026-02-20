@@ -34,7 +34,7 @@ exports.signup = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[OTP] Generated for ${email}: ${otp} (type: ${typeof otp})`);
     console.log(
-      `[Password] Received from signup: ${pin} (type: ${typeof pin})`
+      `[pin] Received from signup: ${pin} (type: ${typeof pin})`
     );
 
     const tokenPayload = { email, pin, otp, role };
@@ -85,7 +85,7 @@ exports.verifyEmailWithOTP = async (req, res) => {
       `[OTP] Decoded from token: ${decoded.otp} (type: ${typeof decoded.otp})`
     );
     console.log(
-      `[Password] Before saving: ${
+      `[pin] Before saving: ${
         decoded.pin
       } (type: ${typeof decoded.pin})`
     );
@@ -117,7 +117,7 @@ exports.verifyEmailWithOTP = async (req, res) => {
 
     await newUser.save();
     console.log(
-      `[Password] Saved to DB (should be hashed): ${newUser.pin}`
+      `[pin] Saved to DB (should be hashed): ${newUser.pin}`
     );
 
     const accessToken = jwt.sign(
@@ -157,7 +157,7 @@ exports.verifyEmailWithOTP = async (req, res) => {
 
 // ---------------------- SIGNIN ------------------------
 exports.signin = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, pin } = req.body;
 
   try {
     const user = await User.findOne({ email });
@@ -166,7 +166,7 @@ exports.signin = async (req, res) => {
       return res.status(400).json({
         statusCode: 400,
         status: false,
-        message: "Invalid email or password",
+        message: "Invalid email or pin",
       });
     }
 
@@ -178,33 +178,16 @@ exports.signin = async (req, res) => {
       });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await user.comparepin(pin);
     if (!isMatch) {
       return res.status(400).json({
         statusCode: 400,
         status: false,
-        message: "Invalid email or password",
+        message: "Invalid email or pin",
       });
     }
 
-    // ✅ 1. Record today's login
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // normalize
-
-    const alreadyLogged = user.loginHistory.some(
-      (entry) => new Date(entry.date).toISOString() === today.toISOString()
-    );
-
-    if (!alreadyLogged) {
-      user.loginHistory.push({ date: today });
-      await user.save();
-    }
-
-    // ✅ 2. Check if any challenge got completed
-    const completedChallenges =
-      challengeController.checkChallengeCompletion(user);
-
-    // ✅ 3. Generate tokens
+    // ✅ 1. Generate tokens
     const accessToken = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       JWT_SECRET,
@@ -225,7 +208,6 @@ exports.signin = async (req, res) => {
         accessToken,
         refreshToken,
         user,
-        completedChallenges, // ✅ return completed ones if any
       },
     });
   } catch (err) {
