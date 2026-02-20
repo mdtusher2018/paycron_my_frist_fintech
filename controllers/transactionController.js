@@ -4,25 +4,24 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Your Stripe 
 const User = require('../models/user_model');  // Your user model (adjust path as needed)
 const Transaction = require('../models/transaction_model'); // Adjust path for your transaction model
 
+
 // Deposit request: create payment intent
 exports.createDeposit = async (req, res) => {
-    const { userId, amount } = req.body; // Get user and amount from request
+    const { userId, amount,currency } = req.body;
 
     try {
-        // Check if the user exists in the system
         const user = await User.findById(userId);
         if (!user) {
             return res.status(400).json({ error: "User not found" });
         }
 
-        // Create a PaymentIntent with Stripe API
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount * 100,  // Convert to the smallest unit (e.g., cents for USD)
-            currency: 'usd',  // You can change the currency
+            amount: amount * 100,
+            currency: currency,  
+            payment_method_types: ['card'],
             metadata: { user_id: userId },
         });
 
-        // Save the transaction request to your DB if needed (optional)
         const transaction = new Transaction({
             userId,
             amount,
@@ -32,7 +31,6 @@ exports.createDeposit = async (req, res) => {
 
         await transaction.save();
 
-        // Send the clientSecret to the Flutter app to confirm the payment
         res.status(200).json({ clientSecret: paymentIntent.client_secret });
     } catch (error) {
         console.error('Error creating payment intent:', error);
@@ -40,32 +38,27 @@ exports.createDeposit = async (req, res) => {
     }
 };
 
-// transactionController.js
 
 exports.handlePaymentSuccess = async (req, res) => {
-    const { payment_intent } = req.query; // Get payment_intent from the URL query params
+    const { payment_intent } = req.query;
 
     try {
-        // Retrieve the PaymentIntent from Stripe
         const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);
 
         if (paymentIntent.status === 'succeeded') {
-            // Payment successful, update the user balance
+    
 
-            const userId = paymentIntent.metadata.user_id;  // Get userId from metadata
-            const amount = paymentIntent.amount_received / 100;  // Convert back to dollars/currency
+            const userId = paymentIntent.metadata.user_id; 
+            const amount = paymentIntent.amount_received / 100;  
 
-            // Update user balance in your database (adjust your schema as needed)
             const user = await User.findById(userId);
             if (!user) {
                 return res.status(404).json({ error: 'User not found' });
             }
 
-            // Add the deposited amount to the user's balance
             user.balance += amount;
             await user.save();
 
-            // Optionally, mark the transaction as completed
             const transaction = await Transaction.findOneAndUpdate(
                 { paymentIntentId: paymentIntent.id },
                 { status: 'completed', amount: amount },
@@ -104,4 +97,30 @@ class DepositService {
     );
   }
 }
+
+Future<void> startCardPayment(BuildContext context, String amount) async {
+  // Step 1: Get the clientSecret from your backend
+  final response = await http.post(
+    Uri.parse("https://your-backend.com/create-payment-intent"),
+    body: jsonEncode({
+      "amount": amount,
+      "currency": "usd",
+    }),
+  );
+  final paymentIntentData = jsonDecode(response.body);
+
+  // Step 2: Initialize PaymentSheet with clientSecret
+  await Stripe.instance.initPaymentSheet(
+    paymentSheetParameters: SetupPaymentSheetParameters(
+      paymentIntentClientSecret: paymentIntentData['clientSecret'],
+      merchantDisplayName: 'Your Merchant Name',
+    ),
+  );
+
+  // Step 3: Present the PaymentSheet
+  await Stripe.instance.presentPaymentSheet();
+}
+
+
+
 */
