@@ -5,15 +5,15 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
-    "get-video-duration": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.0",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "stripe": "^20.3.1"
   },
-  "name": "training-plus",
+  "name": "paycron-fintech",
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {

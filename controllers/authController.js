@@ -2,15 +2,24 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sendEmail = require("../utils/sendEmail");
 const User = require("../models/user_model");
+const Authentication = require("../models/authentication_model");
+const Balance = require("../models/balance_model");
+const Transaction = require("../models/transaction_model");
+const mongoose = require('mongoose');
+const  balanceController  = require('../controllers/balanceController');
+const  transactionController  = require('../controllers/transactionController');
+
+
 const {
   JWT_SECRET,
   ACCESS_TOKEN_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN,
 } = require("../config/secret");
-const challengeController = require("../controllers/challengeController");
+
 
 // ---------------------- SIGNUP ------------------------
 exports.signup = async (req, res) => {
+  console.log(req.body);
   const { email, pin, role } = req.body;
 
   if (!email || !pin) {
@@ -40,11 +49,11 @@ exports.signup = async (req, res) => {
     const tokenPayload = { email, pin, otp, role };
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "10m" });
 
-    await sendEmail(
-      email,
-      "Email Verification OTP",
-      `<p>Your OTP is <b>${otp}</b></p>`
-    );
+    // await sendEmail(
+    //   email,
+    //   "Email Verification OTP",
+    //   `<p>Your OTP is <b>${otp}</b></p>`
+    // );
 
     return res.status(200).json({
       statusCode: 200,
@@ -64,6 +73,7 @@ exports.signup = async (req, res) => {
 
 // ---------------------- EMAIL VERIFICATION ------------------------
 exports.verifyEmailWithOTP = async (req, res) => {
+  console.log(req.body);
   const authHeader = req.headers.authorization;
   const { otp } = req.body;
 
@@ -85,8 +95,7 @@ exports.verifyEmailWithOTP = async (req, res) => {
       `[OTP] Decoded from token: ${decoded.otp} (type: ${typeof decoded.otp})`
     );
     console.log(
-      `[pin] Before saving: ${
-        decoded.pin
+      `[pin] Before saving: ${decoded.pin
       } (type: ${typeof decoded.pin})`
     );
 
@@ -107,15 +116,45 @@ exports.verifyEmailWithOTP = async (req, res) => {
       });
     }
 
+
+
+
+
+    // 1️⃣ Create new user
     const newUser = new User({
-
       email: decoded.email,
-      pin: decoded.pin, 
+      pin: decoded.pin,
       role: decoded.role,
-
     });
 
     await newUser.save();
+
+
+    // 2️⃣ Create Authentication record
+    const authRecord = new Authentication({
+      user: newUser._id,
+      email_verified: true,
+      identity_verified: false,
+      account_status: "Verified",
+    });
+
+    await authRecord.save();
+
+    // 3️⃣ Create initial balance: 5000 BDT
+    await balanceController.addBalance(newUser._id, 5000, 'BDT');
+
+    // 4️⃣ Create initial transaction for deposit
+    await transactionController.createTransaction(
+      newUser._id,       // sender
+      newUser._id,       // receiver (self deposit)
+      'Deposit',         // type
+      5000,              // amount
+      'Completed',       // status
+      'Initial Bonus'    // method
+    );
+
+
+
     console.log(
       `[pin] Saved to DB (should be hashed): ${newUser.pin}`
     );
@@ -146,6 +185,7 @@ exports.verifyEmailWithOTP = async (req, res) => {
       },
     });
   } catch (error) {
+
     return res.status(400).json({
       statusCode: 400,
       status: false,
@@ -157,6 +197,7 @@ exports.verifyEmailWithOTP = async (req, res) => {
 
 // ---------------------- SIGNIN ------------------------
 exports.signin = async (req, res) => {
+  console.log(req.body);
   const { email, pin } = req.body;
 
   try {
@@ -170,7 +211,9 @@ exports.signin = async (req, res) => {
       });
     }
 
-    if (!user.isVerified) {
+const verificationStatus= await Authentication.findOne({user:user._id});
+
+    if (!verificationStatus.email_verified) {
       return res.status(401).json({
         statusCode: 401,
         status: false,

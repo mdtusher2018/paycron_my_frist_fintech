@@ -12,4 +12,7 @@ router.post('/signin', authController.signin);
 router.post('/email-verification', authController.verifyEmailWithOTP);
 
 
+
+
+
 module.exports = router;

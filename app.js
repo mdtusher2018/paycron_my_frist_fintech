@@ -1,11 +1,14 @@
 const express = require("express");
 const app = express();
-
 const authRoutes = require("./routes/authRoutes");
-require("./utils/cronJobs");
+const transactionRoutes = require("./routes/transactionRoutes");
+const balanceRoute = require("./routes/balanceRoutes");
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/auth", authRoutes);
+app.use("/transactions", transactionRoutes);
+app.use("/balance", balanceRoute);
 
 module.exports = app;
