@@ -3,7 +3,9 @@ const app = express();
 const authRoutes = require("./routes/authRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const balanceRoute = require("./routes/balanceRoutes");
+const cors = require('cors');
 
+app.use(cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -28,7 +28,7 @@ exports. createTransaction= async (senderId, receiverId, type, amount, status = 
 
 
 exports.transferMoney =  async (req, res) => {
- const { receiverId, amount} = req.body;
+ const { receiverEmail, amount} = req.body;
  const senderId = req.user.id;
 
   const  paymentMethod = "Wallet Transfer"; 
@@ -36,7 +36,7 @@ exports.transferMoney =  async (req, res) => {
  
   try {
     const sender = await User.findById(senderId);
-    const receiver = await User.findById(receiverId);
+  const receiver = await User.findOne({ email: receiverEmail });
 
     if (!sender) throw new Error("Sender not found");
     if (!receiver) throw new Error("Receiver not found");
