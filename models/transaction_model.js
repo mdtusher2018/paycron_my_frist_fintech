@@ -30,6 +30,10 @@ const TransactionSchema = new Schema({
     type: String, // Payment method used, e.g., 'Stripe'
     required: false
   },
+  paymentIntentId: {
+  type:String,
+  required:false
+  },
   timestamp: {
     type: Date,
     default: Date.now

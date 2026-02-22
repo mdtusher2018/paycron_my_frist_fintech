@@ -10,6 +10,7 @@ const stripe = require('stripe')(STRIPE_SECRET_KEY);
 
 const mongoose = require("mongoose");
 const balanceController = require('./balanceController');
+const Balance = require('../models/balance_model');
 
 
 exports. createTransaction= async (senderId, receiverId, type, amount, status = 'Completed', method = 'Initial Bonus')=> {
@@ -119,7 +120,7 @@ const userId=req.user.id;
 
     await transaction.save();
 
-    res.status(200).json({ clientSecret: paymentIntent.client_secret });
+    res.status(200).json({ clientSecret: paymentIntent.client_secret,  paymentIntentId: paymentIntent.id,  });
   } catch (error) {
     console.error('Error creating payment intent:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -129,8 +130,9 @@ const userId=req.user.id;
 /**
  * Handle Stripe payment success
  */
+
 exports.handlePaymentSuccess = async (req, res) => {
-  const { payment_intent } = req.query;
+  const { payment_intent } = req.body;
 
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);

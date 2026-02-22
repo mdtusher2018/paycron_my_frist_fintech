@@ -7,5 +7,6 @@ router.patch("/transfer", authrized, transactionControllerr.transferMoney);
 
 router.get('/transactions', authrized, transactionControllerr.getMyTransactions);
 router.post('/create-deposit', authrized, transactionControllerr.createDeposit);
+router.post('/deposit-sucess', authrized, transactionControllerr.handlePaymentSuccess);
 
 module.exports = router;
