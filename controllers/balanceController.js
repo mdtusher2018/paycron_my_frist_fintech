@@ -19,6 +19,22 @@ exports.addBalance = async (userId, amount, currency = 'BDT') => {
   await balance.save();
   return balance;
 }
+
+
+exports.getBalanceForSession = async (userId, session) => {
+  return await Balance.findOne({ user: userId }).session(session);
+};
+
+exports.createBalanceForSession = async (userId, amount, session, currency = "BDT") => {
+  const balance = new Balance({
+    user: userId,
+    balance_amount: amount,
+    currency,
+  });
+  await balance.save({ session });
+  return balance;
+};
+
 exports.removeBalance = async (userId, amount, currency = 'BDT') => {
   if (amount <= 0) {
     throw new Error("Amount must be greater than zero");

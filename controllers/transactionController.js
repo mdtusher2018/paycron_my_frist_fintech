@@ -4,16 +4,16 @@
 const User = require('../models/user_model');  // Your user model (adjust path as needed)
 const Transaction = require('../models/transaction_model'); // Adjust path for your transaction model
 const {
-  STRIPE_SECRET_KEY,
+  STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
 } = require("../config/secret");
 const stripe = require('stripe')(STRIPE_SECRET_KEY);
 
+
 const mongoose = require("mongoose");
 const balanceController = require('./balanceController');
-const Balance = require('../models/balance_model');
 
 
-exports. createTransaction= async (senderId, receiverId, type, amount, status = 'Completed', method = 'Initial Bonus')=> {
+exports.createTransaction = async (senderId, receiverId, type, amount, status = 'Completed', method = 'Initial Bonus') => {
   const transaction = new Transaction({
     sender: senderId,
     receiver: receiverId,
@@ -28,30 +28,30 @@ exports. createTransaction= async (senderId, receiverId, type, amount, status = 
 
 
 
-exports.transferMoney =  async (req, res) => {
- const { receiverEmail, amount} = req.body;
- const senderId = req.user.id;
+exports.transferMoney = async (req, res) => {
+  const { receiverId, amount } = req.body;
+  const senderId = req.user.id;
 
-  const  paymentMethod = "Wallet Transfer"; 
-  
- 
+  const paymentMethod = "Wallet Transfer";
+
+
   try {
     const sender = await User.findById(senderId);
-  const receiver = await User.findOne({ email: receiverEmail });
+    const receiver = await User.findById(receiverId);
 
     if (!sender) throw new Error("Sender not found");
     if (!receiver) throw new Error("Receiver not found");
 
-      await balanceController.addBalance(receiver._id, amount);
-      await balanceController.removeBalance(sender._id, amount);
+    await balanceController.addBalance(receiver._id, amount);
+    await balanceController.removeBalance(sender._id, amount);
 
-      this.createTransaction(
-        sender._id,receiver._id,"Send Money",amount,"Completed",paymentMethod,
-      );
-      return res.status(200).json({
+    this.createTransaction(
+      sender._id, receiver._id, "Send Money", amount, "Completed", paymentMethod,
+    );
+    return res.status(200).json({
       status: true,
       message: "Money transferred successfully",
-    
+
     });
   } catch (error) {
     throw error;
@@ -69,9 +69,9 @@ exports.getMyTransactions = async (req, res) => {
         { receiver: req.user.id }
       ]
     })
-    .sort({ createdAt: -1 }) // Most recent first
-    .populate('sender', 'email role')   // optional, populate sender details
-    .populate('receiver', 'email role'); // optional, populate receiver details
+      .sort({ createdAt: -1 }) // Most recent first
+      .populate('sender', 'email role')   // optional, populate sender details
+      .populate('receiver', 'email role'); // optional, populate receiver details
 
     return res.status(200).json({
       statusCode: 200,
@@ -91,8 +91,8 @@ exports.getMyTransactions = async (req, res) => {
 
 
 exports.createDeposit = async (req, res) => {
-  const {  amount, currency } = req.body;
-const userId=req.user.id;
+  const { amount, currency } = req.body;
+  const userId = req.user.id;
 
 
   try {
@@ -120,7 +120,7 @@ const userId=req.user.id;
 
     await transaction.save();
 
-    res.status(200).json({ clientSecret: paymentIntent.client_secret,  paymentIntentId: paymentIntent.id,  });
+    res.status(200).json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
     console.error('Error creating payment intent:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -130,38 +130,134 @@ const userId=req.user.id;
 /**
  * Handle Stripe payment success
  */
+// exports.handlePaymentSuccess = async (req, res) => {
+//   const { payment_intent } = req.query;
+//   try {
+//     const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);
+//     if (paymentIntent.status === 'succeeded') {
+//       const userId = paymentIntent.metadata.user_id;
+//       const amount = paymentIntent.amount_received / 100;
+//       // ✅ Update user's balance
+//       let balance = await Balance.findOne({ user: userId });
+//       if (!balance) {
+//         balance = new Balance({ user: userId, balance_amount: 0, currency: paymentIntent.currency });
+//       }
+//       balance.balance_amount += amount;
+//       await balance.save();
+//       // ✅ Update transaction status
+//       const transaction = await Transaction.findOneAndUpdate(
+//         { paymentIntentId: paymentIntent.id },
+//         { status: "Completed", amount },
+//         { new: true }
+//       );
+//       res.status(200).json({ message: 'Payment successful, balance updated', transaction });
+//     } else {
+//       res.status(400).json({ error: 'Payment not completed' });
+//     }
+//   } catch (error) {
+//     console.error('Error processing payment success:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// };
 
-exports.handlePaymentSuccess = async (req, res) => {
-  const { payment_intent } = req.body;
+
+
+
+
+exports.stripeWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+
+  let event;
 
   try {
-    const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.log('Webhook signature verification failed.');
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
-    if (paymentIntent.status === 'succeeded') {
-      const userId = paymentIntent.metadata.user_id;
-      const amount = paymentIntent.amount_received / 100;
+  // Handle event
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
 
-      // ✅ Update user's balance
-      let balance = await Balance.findOne({ user: userId });
-      if (!balance) {
-        balance = new Balance({ user: userId, balance_amount: 0, currency: paymentIntent.currency });
-      }
-      balance.balance_amount += amount;
-      await balance.save();
+    await handleSuccessfulPayment(paymentIntent);
+  }
 
-      // ✅ Update transaction status
-      const transaction = await Transaction.findOneAndUpdate(
-        { paymentIntentId: paymentIntent.id },
-        { status: "Completed", amount },
-        { new: true }
-      );
+  res.send({ received: true });
+};
 
-      res.status(200).json({ message: 'Payment successful, balance updated', transaction });
-    } else {
-      res.status(400).json({ error: 'Payment not completed' });
+// const handleSuccessfulPayment = async (paymentIntent) => {
+//   console.log("===============>>>>>>>>>handle payment");
+//   const userId = paymentIntent.metadata.user_id;
+//   const amount = paymentIntent.amount_received / 100;
+//   // Update balance safely
+//   await balanceController.addBalance(userId, amount);
+//   await Transaction.findOneAndUpdate(
+//     { paymentIntentId: paymentIntent.id },
+//     { status: "Completed" }
+//   );
+// };
+
+
+
+
+
+
+
+
+const handleSuccessfulPayment = async (paymentIntent) => {
+  console.log("===============>>>>>>>>>handle payment");
+
+  const userId = paymentIntent.metadata.user_id;
+  const amount = paymentIntent.amount_received / 100;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // ✅ Idempotency check: don't process if already completed
+    const existingTransaction = await Transaction.findOne({
+      paymentIntentId: paymentIntent.id,
+      status: "Completed",
+    }).session(session);
+
+    if (existingTransaction) {
+      console.log("Payment already processed");
+      await session.commitTransaction();
+      session.endSession();
+      return;
     }
-  } catch (error) {
-    console.error('Error processing payment success:', error);
-    res.status(500).json({ error: 'Internal server error' });
+
+    // ✅ Update balance using session
+    let balance = await balanceController.getBalanceForSession(userId, session);
+    if (!balance) {
+      balance = await balanceController.createBalanceForSession(userId, amount, session);
+    } else {
+      balance.balance_amount += amount;
+      await balance.save({ session });
+    }
+
+    // ✅ Update transaction status
+    await Transaction.findOneAndUpdate(
+      { paymentIntentId: paymentIntent.id },
+      { status: "Completed", amount },
+      { session, new: true }
+    );
+
+    // ✅ Commit all changes atomically
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log("Payment processed successfully");
+
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error processing payment:", err);
+    throw err; // Let webhook return 500 so Stripe retries
   }
 };
