@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect('mongodb+srv://nice2kalam_db_user:1234@cluster0.bzbovli.mongodb.net/paycron');
+    // await mongoose.connect('mongodb+srv://nice2kalam_db_user:1234@cluster0.bzbovli.mongodb.net/paycron');
+    await mongoose.connect('mongodb://localhost:27017/paycron');
     console.log('MongoDB connected');
   } catch (error) {
     console.error('MongoDB connection error:', error);

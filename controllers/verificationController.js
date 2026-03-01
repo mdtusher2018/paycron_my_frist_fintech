@@ -3,11 +3,12 @@
 
 
 const Authentication = require("../models/authentication_model");
+const User = require("../models/user_model");
 
 
 exports.submitIdentityVerification = async (req, res) => {
   console.log(req.user);
-    try {
+  try {
 
     const userId = req.user.id;
     const { document_type } = req.body;
@@ -19,14 +20,28 @@ exports.submitIdentityVerification = async (req, res) => {
       });
     }
 
-    if (!req.file) {
+    if (!req.files || !req.files.document) {
       return res.status(400).json({
         status: false,
         message: "Document image is required"
       });
     }
 
+    if (!req.files.user_image) {
+      return res.status(400).json({
+        status: false,
+        message: "User image is required"
+      });
+    }
+
     const authRecord = await Authentication.findOne({ user: userId });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found"
+      });
+    }
 
     if (!authRecord) {
       return res.status(404).json({
@@ -42,16 +57,27 @@ exports.submitIdentityVerification = async (req, res) => {
       });
     }
 
-    // Save relative file path
-    const filePath = req.file.path;
+    // Save file paths
+    const documentFilePath = req.files.document[0].path;
+    const userImageFilePath = req.files.user_image[0].path;
 
-    authRecord.identity_documents.push({
-      document_type,
-      document_url: filePath,
-      status: "Pending"
-    });
+
+    authRecord.identity_documents = [
+      {
+        document_type,
+        document_url: documentFilePath,
+        status: "Pending",
+        submitted_at: new Date()
+      }
+    ];
+
+    // Save user image
+    authRecord.user_image = userImageFilePath;
 
     authRecord.identity_status = "Pending";
+
+    user.account_status = "Pending";
+    await user.save();
 
     await authRecord.save();
 
@@ -60,7 +86,8 @@ exports.submitIdentityVerification = async (req, res) => {
       message: "Identity document submitted successfully. Waiting for admin approval.",
       document: {
         document_type,
-        document_url: filePath
+        document_url: documentFilePath,
+        user_image: userImageFilePath
       }
     });
 
@@ -75,9 +102,54 @@ exports.submitIdentityVerification = async (req, res) => {
 };
 
 
+// Get all pending identity verification requests
+exports.getPendingIdentities = async (req, res) => {
+  try {
+    // Find all authentication records where identity_status is Pending
+    const pendingRecords = await Authentication.find({ identity_status: "Pending" });
+
+    if (!pendingRecords.length) {
+      return res.status(200).json({
+        status: true,
+        message: "No pending identity verification requests",
+        data: []
+      });
+    }
+
+    // Optional: Only send relevant fields
+    const responseData = pendingRecords.map(record => ({
+      userId: record.user,
+      identity_status: record.identity_status,
+      documents: record.identity_documents.filter(doc => doc.status === "Pending")
+    }));
+
+    res.status(200).json({
+      status: true,
+      message: "Pending identity verification requests retrieved",
+      data: responseData
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: false,
+      message: "Failed to fetch pending requests",
+      error: error.message
+    });
+  }
+};
+
+
 exports.approveIdentity = async (req, res) => {
   try {
     const { userId, documentId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found"
+      });
+    }
 
     const authRecord = await Authentication.findOne({ user: userId });
 
@@ -104,6 +176,9 @@ exports.approveIdentity = async (req, res) => {
     // If at least one document approved → overall approved
     authRecord.identity_status = "Approved";
 
+    user.account_status = "Verified";
+    await user.save();
+
     await authRecord.save();
 
     res.status(200).json({
@@ -127,6 +202,16 @@ exports.rejectIdentity = async (req, res) => {
     const { reason } = req.body;
 
     const authRecord = await Authentication.findOne({ user: userId });
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found"
+      });
+    }
+
+
 
     if (!authRecord) {
       return res.status(404).json({
@@ -156,6 +241,9 @@ exports.rejectIdentity = async (req, res) => {
     if (allRejected) {
       authRecord.identity_status = "Rejected";
     }
+
+    user.account_status = "Active";
+    await user.save();
 
     await authRecord.save();
 

@@ -27,7 +27,7 @@ const UserSchema = new Schema({
   account_status: {
     type: String,
     enum: ['Active', 'Pending', 'Verified', 'Suspended'],
-    default: 'Pending'
+    default: 'Active'
   },
 
   role: {

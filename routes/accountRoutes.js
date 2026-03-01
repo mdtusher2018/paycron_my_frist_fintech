@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/accountController');
+const { authrized } = require('../middleware/authmiddleware');
 
 // @route   POST /auth/signup
-router.post('/get-profile', controller.getMyProfile);
+router.get('/get-profile',authrized, controller.getMyProfile);
 
 
 

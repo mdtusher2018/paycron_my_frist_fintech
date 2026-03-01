@@ -11,7 +11,10 @@ const AuthenticationSchema = new Schema({
     type: Boolean,
     default: false
   },
-
+  user_image: {
+    type: String, // store relative path or URL of the image
+    default: null
+  },
   identity_status: {
     type: String,
     enum: ["NotSubmitted", "Pending", "Approved", "Rejected"],

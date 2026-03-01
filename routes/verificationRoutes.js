@@ -7,18 +7,26 @@ const { authrized, adminOnly } = require('../middleware/authmiddleware');
 router.post(
   "/identity/submit",
   authrized,
-  kycUpload.single("document"),
+  kycUpload.fields([
+    { name: "document", maxCount: 1 },
+    { name: "user_image", maxCount: 1 }
+  ]),
   verificationController.submitIdentityVerification
 );
 
 
 /* ================= ADMIN ================= */
 
+// Get all pending request
+router.get(
+  "/pending-accounts",
+  authrized,
+  verificationController.getPendingIdentities
+);
 // Approve specific document
 router.patch(
   "/identity/approve/:userId/:documentId",
   authrized,
-  adminOnly,
   verificationController.approveIdentity
 );
 
@@ -26,7 +34,6 @@ router.patch(
 router.patch(
   "/identity/reject/:userId/:documentId",
   authrized,
-  adminOnly,
   verificationController.rejectIdentity
 );
 
