@@ -5,6 +5,7 @@ const transactionRoutes = require("./routes/transactionRoutes");
 const balanceRoute = require("./routes/balanceRoutes");
 const accountRoute = require("./routes/accountRoutes");
 const webhookRoute = require("./routes/webhookRoutes");
+const verificationRoutes = require("./routes/verificationRoutes");
 const cors = require('cors');
 
 app.use(cors());
@@ -15,5 +16,6 @@ app.use("/auth", authRoutes);
 app.use("/transactions", transactionRoutes);
 app.use("/balance", balanceRoute);
 app.use("/user", accountRoute);
+app.use("/verification", verificationRoutes);
 
 module.exports = app;

@@ -219,7 +219,6 @@ const handleSuccessfulPayment = async (paymentIntent) => {
   session.startTransaction();
 
   try {
-    // ✅ Idempotency check: don't process if already completed
     const existingTransaction = await Transaction.findOne({
       paymentIntentId: paymentIntent.id,
       status: "Completed",
@@ -232,7 +231,6 @@ const handleSuccessfulPayment = async (paymentIntent) => {
       return;
     }
 
-    // ✅ Update balance using session
     let balance = await balanceController.getBalanceForSession(userId, session);
     if (!balance) {
       balance = await balanceController.createBalanceForSession(userId, amount, session);
@@ -241,7 +239,6 @@ const handleSuccessfulPayment = async (paymentIntent) => {
       await balance.save({ session });
     }
 
-    // ✅ Update transaction status
     await Transaction.findOneAndUpdate(
       { paymentIntentId: paymentIntent.id },
       { status: "Completed", amount },
@@ -258,6 +255,6 @@ const handleSuccessfulPayment = async (paymentIntent) => {
     await session.abortTransaction();
     session.endSession();
     console.error("Error processing payment:", err);
-    throw err; // Let webhook return 500 so Stripe retries
+    throw err; 
   }
 };
