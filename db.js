@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
+const { MONGO_URI } = require('./config/secret');
 
 const connectDB = async () => {
   try {
-    // await mongoose.connect('mongodb+srv://nice2kalam_db_user:1234@cluster0.bzbovli.mongodb.net/paycron');
-    await mongoose.connect('mongodb://localhost:27017/paycron');
+    await mongoose.connect(MONGO_URI);
     console.log('MongoDB connected');
   } catch (error) {
     console.error('MongoDB connection error:', error);

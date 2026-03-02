@@ -1,5 +1,9 @@
+const dns = require('dns');
 const app = require('./app');
 const connectDB = require('./db');
+
+dns.setServers(["1.1.1.1","8.8.8.8"])
+
 
 connectDB();
 
