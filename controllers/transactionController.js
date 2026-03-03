@@ -127,42 +127,6 @@ exports.createDeposit = async (req, res) => {
   }
 };
 
-/**
- * Handle Stripe payment success
- */
-// exports.handlePaymentSuccess = async (req, res) => {
-//   const { payment_intent } = req.query;
-//   try {
-//     const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);
-//     if (paymentIntent.status === 'succeeded') {
-//       const userId = paymentIntent.metadata.user_id;
-//       const amount = paymentIntent.amount_received / 100;
-//       // ✅ Update user's balance
-//       let balance = await Balance.findOne({ user: userId });
-//       if (!balance) {
-//         balance = new Balance({ user: userId, balance_amount: 0, currency: paymentIntent.currency });
-//       }
-//       balance.balance_amount += amount;
-//       await balance.save();
-//       // ✅ Update transaction status
-//       const transaction = await Transaction.findOneAndUpdate(
-//         { paymentIntentId: paymentIntent.id },
-//         { status: "Completed", amount },
-//         { new: true }
-//       );
-//       res.status(200).json({ message: 'Payment successful, balance updated', transaction });
-//     } else {
-//       res.status(400).json({ error: 'Payment not completed' });
-//     }
-//   } catch (error) {
-//     console.error('Error processing payment success:', error);
-//     res.status(500).json({ error: 'Internal server error' });
-//   }
-// };
-
-
-
-
 
 exports.stripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -190,27 +154,8 @@ exports.stripeWebhook = async (req, res) => {
   res.send({ received: true });
 };
 
-// const handleSuccessfulPayment = async (paymentIntent) => {
-//   console.log("===============>>>>>>>>>handle payment");
-//   const userId = paymentIntent.metadata.user_id;
-//   const amount = paymentIntent.amount_received / 100;
-//   // Update balance safely
-//   await balanceController.addBalance(userId, amount);
-//   await Transaction.findOneAndUpdate(
-//     { paymentIntentId: paymentIntent.id },
-//     { status: "Completed" }
-//   );
-// };
-
-
-
-
-
-
-
 
 const handleSuccessfulPayment = async (paymentIntent) => {
-  console.log("===============>>>>>>>>>handle payment");
 
   const userId = paymentIntent.metadata.user_id;
   const amount = paymentIntent.amount_received / 100;
@@ -245,7 +190,6 @@ const handleSuccessfulPayment = async (paymentIntent) => {
       { session, new: true }
     );
 
-    // ✅ Commit all changes atomically
     await session.commitTransaction();
     session.endSession();
 
