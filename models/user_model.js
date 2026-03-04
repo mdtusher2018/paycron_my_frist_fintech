@@ -11,6 +11,21 @@ const UserSchema = new Schema({
     type: String,
     required: false
   },
+
+  date_of_birth: {
+    type: Date,
+    required: false
+  },
+  address: {
+    road: { type: String, required: false },
+    city: { type: String, required: false },
+    state: { type: String, required: false },
+    postal_code: { type: String, required: false },
+    country: { type: String, required: false },
+  },
+
+
+
   email: {
     type: String,
     unique: true,
@@ -49,6 +64,23 @@ UserSchema.pre('save', async function (next) {
   if (!this.isModified('pin')) return next();
   const salt = await bcrypt.genSalt(10);
   this.pin = await bcrypt.hash(this.pin, salt);
+
+
+  // Update profile_completed
+  const dobFilled = !!this.date_of_birth;
+  const address = this.address || {};
+  const addressFilled =
+    !!address.road &&
+    !!address.city &&
+    !!address.state &&
+    !!address.postal_code &&
+    !!address.country;
+
+  this.profile_completed = dobFilled && addressFilled;
+
+
+
+
   next();
 });
 

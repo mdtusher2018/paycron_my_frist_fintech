@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/accountController');
+const controller = require('../controllers/userController');
 const { authrized } = require('../middleware/authmiddleware');
 
 /**
@@ -67,6 +67,10 @@ const { authrized } = require('../middleware/authmiddleware');
  *                   example: Server Error
  */
 router.get('/get-profile',authrized, controller.getMyProfile);
+router.patch('/complete-profile',authrized, controller.completeProfile);
+
+
+
 
 
 

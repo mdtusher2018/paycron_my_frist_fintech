@@ -7,13 +7,19 @@ const {
   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
 } = require("../config/secret");
 const stripe = require('stripe')(STRIPE_SECRET_KEY);
-
-
 const mongoose = require("mongoose");
 const balanceController = require('./balanceController');
 
 
-exports.createTransaction = async (senderId, receiverId, type, amount, status = 'Completed', method = 'Initial Bonus') => {
+exports.createTransaction = async (
+  senderId,
+  receiverId,
+  type,
+  amount,
+  status = "Completed",
+  method = "Initial Bonus",
+  session = null   // 👈 optional session
+) => {
   const transaction = new Transaction({
     sender: senderId,
     receiver: receiverId,
@@ -23,38 +29,83 @@ exports.createTransaction = async (senderId, receiverId, type, amount, status = 
     payment_method: method,
   });
 
-  await transaction.save();
-}
+  if (session) {
+    await transaction.save({ session });
+  } else {
+    await transaction.save();
+  }
+
+  return transaction;
+};
 
 
 
 exports.transferMoney = async (req, res) => {
-  const { receiverId, amount } = req.body;
-  const senderId = req.user.id;
-
-  const paymentMethod = "Wallet Transfer";
-
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    const sender = await User.findById(senderId);
-    const receiver = await User.findById(receiverId);
+    const { receiverEmail, amount } = req.body;
+    const senderId = req.user.id;
 
+    if (amount <= 0) {
+      throw new Error("Amount must be greater than zero");
+    }
+
+    const sender = await User.findById(senderId).session(session);
     if (!sender) throw new Error("Sender not found");
+
+    const receiver = await User.findOne({
+      email: receiverEmail.toLowerCase().trim(),
+    }).session(session);
+
     if (!receiver) throw new Error("Receiver not found");
 
-    await balanceController.addBalance(receiver._id, amount);
-    await balanceController.removeBalance(sender._id, amount);
+    if (receiver._id.toString() === sender._id.toString()) {
+      throw new Error("You cannot send money to yourself");
+    }
 
-    this.createTransaction(
-      sender._id, receiver._id, "Send Money", amount, "Completed", paymentMethod,
+    // ✅ Deduct sender
+    await balanceController.removeBalanceWithSession(
+      sender._id,
+      amount,
+      session
     );
+
+    // ✅ Add to receiver
+    await balanceController.addBalanceWithSession(
+      receiver._id,
+      amount,
+      session
+    );
+
+    // ✅ Create transaction record
+    await this.createTransaction(
+      sender._id,
+      receiver._id,
+      "Send Money",
+      amount,
+      "Completed",
+      "Wallet Transfer",
+      session
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
     return res.status(200).json({
       status: true,
       message: "Money transferred successfully",
-
     });
+
   } catch (error) {
-    throw error;
+    await session.abortTransaction();
+    session.endSession();
+
+    return res.status(400).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
@@ -120,7 +171,11 @@ exports.createDeposit = async (req, res) => {
 
     await transaction.save();
 
-    res.status(200).json({ clientSecret: paymentIntent.client_secret });
+    res.status(200).json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id
+
+    });
   } catch (error) {
     console.error('Error creating payment intent:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -199,6 +254,6 @@ const handleSuccessfulPayment = async (paymentIntent) => {
     await session.abortTransaction();
     session.endSession();
     console.error("Error processing payment:", err);
-    throw err; 
+    throw err;
   }
 };

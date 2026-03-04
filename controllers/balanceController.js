@@ -1,10 +1,11 @@
 const Balance = require('../models/balance_model');
 
-exports.addBalance = async (userId, amount, currency = 'BDT') => {
+exports.addBalanceWithSession = async (userId, amount, session, currency = "BDT") => {
   if (amount <= 0) {
     throw new Error("Amount must be greater than zero");
   }
-  let balance = await Balance.findOne({ user: userId });
+
+  let balance = await Balance.findOne({ user: userId }).session(session);
 
   if (!balance) {
     balance = new Balance({
@@ -16,9 +17,26 @@ exports.addBalance = async (userId, amount, currency = 'BDT') => {
     balance.balance_amount += amount;
   }
 
-  await balance.save();
+  await balance.save({ session });
   return balance;
-}
+};
+
+exports.removeBalanceWithSession = async (userId, amount, session) => {
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  let balance = await Balance.findOne({ user: userId }).session(session);
+
+  if (!balance || balance.balance_amount < amount) {
+    throw new Error("Insufficient balance");
+  }
+
+  balance.balance_amount -= amount;
+
+  await balance.save({ session });
+  return balance;
+};
 
 
 exports.getBalanceForSession = async (userId, session) => {
@@ -35,28 +53,6 @@ exports.createBalanceForSession = async (userId, amount, session, currency = "BD
   return balance;
 };
 
-exports.removeBalance = async (userId, amount, currency = 'BDT') => {
-  if (amount <= 0) {
-    throw new Error("Amount must be greater than zero");
-  }
-  let balance = await Balance.findOne({ user: userId });
-
-  if (!balance) {
-    balance = new Balance({
-      user: userId,
-      balance_amount: amount,
-      currency,
-    });
-  } else {
-    if (balance.balance_amount < amount) {
-      throw new Error("Insufficient balance");
-    }
-    balance.balance_amount -= amount;
-  }
-
-  await balance.save();
-  return balance;
-}
 
 
 exports.getMyBalance = async (req, res) => {
