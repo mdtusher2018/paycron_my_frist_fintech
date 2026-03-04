@@ -15,6 +15,10 @@ const options = {
         url: 'http://localhost:3000',
         description: 'Development server',
       },
+      {
+        url: 'https://paycron-my-frist-fintech-1.onrender.com',
+        description: 'Live server',
+      },
     ],
     components: {
       securitySchemes: {
@@ -37,5 +41,5 @@ const options = {
 const swaggerSpec = swaggerJsdoc(options);
 
 export function setUpSwagger(app) {
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 }
