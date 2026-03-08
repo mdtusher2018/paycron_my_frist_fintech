@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const transactionControllerr = require("../controllers/transactionController");
+const transactionController = require("../controllers/transactionController");
 const { authrized } = require("../middleware/authmiddleware");
 /**
  * @swagger
@@ -54,7 +54,7 @@ const { authrized } = require("../middleware/authmiddleware");
  *                   example: Sender not found
  */
 
-router.patch("/transfer", authrized, transactionControllerr.transferMoney);
+router.patch("/transfer", authrized, transactionController.transferMoney);
 
 /**
  * @swagger
@@ -119,7 +119,7 @@ router.patch("/transfer", authrized, transactionControllerr.transferMoney);
  *                         format: date-time
  */
 
-router.get('/my-transactions', authrized, transactionControllerr.getMyTransactions);
+router.get('/my-transactions', authrized, transactionController.getMyTransactions);
 
 /**
  * @swagger
@@ -160,7 +160,7 @@ router.get('/my-transactions', authrized, transactionControllerr.getMyTransactio
  *       500:
  *         description: Internal server error
  */
-router.post('/create-deposit', authrized, transactionControllerr.createDeposit);
+router.post('/create-deposit', authrized, transactionController.createDeposit);
 
 /**
  * @swagger
@@ -190,6 +190,25 @@ router.post('/create-deposit', authrized, transactionControllerr.createDeposit);
  *       400:
  *         description: Webhook signature verification failed
  */
-router.post('/deposit-sucess', authrized, transactionControllerr.stripeWebhook);
+router.post('/deposit-sucess', authrized, transactionController.stripeWebhook);
+
+// 1️⃣ Send a money request (requires PIN verification)
+router.post('/request-money', authrized, transactionController.requestMoney);
+
+// 2️⃣ Get requests I sent
+router.get('/requests-sent', authrized, transactionController.getSentRequests);
+
+// 3️⃣ Get requests I received
+router.get('/requests-received', authrized, transactionController.getReceivedRequests);
+
+// 4️⃣ Approve a pending request (requires PIN)
+router.post('/requests-approve', authrized, transactionController.approveRequest);
+
+// 5️⃣ Reject a pending request
+router.post('/requests-reject', authrized, transactionController.rejectRequest);
+
+
+
+
 
 module.exports = router;

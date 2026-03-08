@@ -41,7 +41,7 @@ exports.createTransaction = async (
 };
 
 
-
+//Send money
 exports.transferMoney = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -153,7 +153,7 @@ exports.getMyTransactions = async (req, res) => {
 };
 
 
-
+//Deposite
 exports.createDeposit = async (req, res) => {
   const { amount, currency } = req.body;
   const userId = req.user.id;
@@ -268,5 +268,191 @@ const handleSuccessfulPayment = async (paymentIntent) => {
     session.endSession();
     console.error("Error processing payment:", err);
     throw err;
+  }
+};
+
+
+
+//Request money
+exports.requestMoney = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { senderEmail, amount, purpose = "No Purpose", pin } = req.body;
+    const senderId = req.user.id; // user sending the request
+
+    if (amount <= 0) throw new Error("Amount must be greater than zero");
+    if (!pin) throw new Error("PIN is required");
+
+    // ✅ Fetch sender and verify PIN
+    const sender = await User.findById(senderId).session(session);
+    if (!sender) throw new Error("Sender not found");
+
+    const isPinValid = await sender.comparepin(pin);
+    if (!isPinValid) throw new Error("Invalid PIN");
+
+    // ✅ Fetch receiver
+    const receiver = await User.findOne({
+      email: senderEmail.toLowerCase().trim(),
+    }).session(session);
+
+    if (!receiver) throw new Error("Receiver not found");
+    if (receiver._id.toString() === senderId) throw new Error("Cannot request money from yourself");
+
+    // ✅ Create Request transaction (Pending)
+    await this.createTransaction(
+      senderId,       // sender = requester
+      receiver._id,   // receiver = person who needs to pay
+      "Request Money",  
+      amount,
+      "Pending",
+      "Request",
+      session,
+      purpose
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      status: true,
+      message: "Money request sent successfully",
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    return res.status(400).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.getSentRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const sentRequests = await Transaction.find({
+      transaction_type: "Request Money",
+      sender: userId
+    })
+      .sort({ createdAt: -1 })
+      .populate('receiver', 'email role')
+      .populate('sender', 'email role'); // optional, include sender info too
+
+    return res.status(200).json({
+      status: true,
+      requests: sentRequests,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: "Failed to fetch sent requests",
+      error: error.message
+    });
+  }
+};
+
+exports.getReceivedRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const receivedRequests = await Transaction.find({
+      transaction_type: "Request Money",
+      receiver: userId
+    })
+      .sort({ createdAt: -1 })
+      .populate('sender', 'email role')
+      .populate('receiver', 'email role'); // optional, include receiver info too
+
+    return res.status(200).json({
+      status: true,
+      requests: receivedRequests,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: "Failed to fetch received requests",
+      error: error.message
+    });
+  }
+};
+exports.approveRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { requestId, pin } = req.body;
+    const userId = req.user.id; // must be the receiver of request
+
+    if (!pin) throw new Error("PIN is required");
+
+    const request = await Transaction.findById(requestId).session(session);
+    if (!request) throw new Error("Request not found");
+    if (request.receiver.toString() !== userId) throw new Error("Not authorized to approve this request");
+    if (request.status !== "Pending") throw new Error("Request is already processed");
+
+    // Verify PIN
+    const receiver = await User.findById(userId).session(session);
+    const isPinValid = await receiver.comparepin(pin);
+    if (!isPinValid) throw new Error("Invalid PIN");
+
+    // Deduct balance from receiver
+    await balanceController.removeBalanceWithSession(userId, request.amount, session);
+
+    // Add balance to sender (requester)
+    await balanceController.addBalanceWithSession(request.sender, request.amount, session);
+
+    // Update request status
+    request.status = "Completed";
+    await request.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      status: true,
+      message: "Request approved and money transferred successfully",
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    return res.status(400).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
+
+exports.rejectRequest = async (req, res) => {
+  try {
+    const { requestId } = req.body;
+    const userId = req.user.id;
+
+    const request = await Transaction.findById(requestId);
+    if (!request) throw new Error("Request not found");
+    if (request.receiver.toString() !== userId) throw new Error("Not authorized to reject this request");
+    if (request.status !== "Pending") throw new Error("Request is already processed");
+
+    request.status = "Failed"; // rejected
+    await request.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "Request rejected successfully",
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
