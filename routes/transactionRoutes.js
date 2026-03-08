@@ -119,7 +119,7 @@ router.patch("/transfer", authrized, transactionControllerr.transferMoney);
  *                         format: date-time
  */
 
-router.get('/transactions', authrized, transactionControllerr.getMyTransactions);
+router.get('/my-transactions', authrized, transactionControllerr.getMyTransactions);
 
 /**
  * @swagger

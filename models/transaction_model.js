@@ -20,6 +20,10 @@ const TransactionSchema = new Schema({
   amount: {
     type: Number,
     required: true
+  }, 
+  purpose: {
+    type: String, 
+    required: false
   },
   status: {
     type: String,
@@ -31,8 +35,8 @@ const TransactionSchema = new Schema({
     required: false
   },
   paymentIntentId: {
-  type:String,
-  required:false
+    type: String,
+    required: false
   },
   timestamp: {
     type: Date,

@@ -68,6 +68,7 @@ const { authrized } = require('../middleware/authmiddleware');
  */
 router.get('/get-profile',authrized, controller.getMyProfile);
 router.patch('/complete-profile',authrized, controller.completeProfile);
+router.post('/check-email-exists',authrized, controller.checkEmailExists);
 
 
 

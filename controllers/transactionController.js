@@ -18,7 +18,8 @@ exports.createTransaction = async (
   amount,
   status = "Completed",
   method = "Initial Bonus",
-  session = null   // 👈 optional session
+  session = null,
+  purpose="No Purpose"
 ) => {
   const transaction = new Transaction({
     sender: senderId,
@@ -27,6 +28,7 @@ exports.createTransaction = async (
     amount,
     status,
     payment_method: method,
+    purpose:purpose
   });
 
   if (session) {
@@ -45,15 +47,25 @@ exports.transferMoney = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { receiverEmail, amount } = req.body;
+    const { receiverEmail, amount, purpose="No Purpose", pin } = req.body;
     const senderId = req.user.id;
+
+
+
 
     if (amount <= 0) {
       throw new Error("Amount must be greater than zero");
     }
 
+    if (!pin) throw new Error("PIN is required");
+
     const sender = await User.findById(senderId).session(session);
     if (!sender) throw new Error("Sender not found");
+
+
+    const isPinValid = await sender.comparepin(pin);
+    if (!isPinValid) throw new Error("Invalid PIN. Transaction aborted.");
+
 
     const receiver = await User.findOne({
       email: receiverEmail.toLowerCase().trim(),
@@ -87,7 +99,8 @@ exports.transferMoney = async (req, res) => {
       amount,
       "Completed",
       "Wallet Transfer",
-      session
+      session,
+      purpose
     );
 
     await session.commitTransaction();

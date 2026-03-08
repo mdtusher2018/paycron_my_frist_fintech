@@ -3,8 +3,42 @@
 const User = require('../models/user_model');
 
 
+exports.checkEmailExists = async (req, res) => {
+console.log(req.body);
+  try {
+    const { email } = req.body;
 
+    if (!email) {
+      return res.status(400).json({
+        status: false,
+        message: "Email is required",
+      });
+    }
 
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        status: false,
+        message: "Email not found",
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Email exists",
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 exports.completeProfile = async (req, res) => {
   try {
     const userId = req.user.id;

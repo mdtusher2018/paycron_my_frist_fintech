@@ -29,6 +29,15 @@ exports.signup = async (req, res) => {
       message: "Email, and Pin are required.",
     });
   }
+    // ✅ Validate PIN: 4 digits only
+  const pinRegex = /^\d{4}$/;
+  if (!pinRegex.test(pin)) {
+    return res.status(400).json({
+      statusCode: 400,
+      status: false,
+      message: "PIN must be exactly 4 digits.",
+    });
+  }
 
   try {
     const existingUser = await User.findOne({ email });
@@ -134,7 +143,8 @@ exports.verifyEmailWithOTP = async (req, res) => {
       5000,
       "Completed",
       "Initial Bonus",
-      session
+      session,
+      "Sign up bonous"
     );
 
     // ✅ Commit AFTER everything succeeds
