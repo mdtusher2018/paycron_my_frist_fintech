@@ -6,6 +6,7 @@ const balanceRoute = require("./routes/balanceRoutes");
 const userRoute = require("./routes/userRoutes");
 const webhookRoute = require("./routes/webhookRoutes");
 const verificationRoutes = require("./routes/verificationRoutes");
+const paymentManagementRoutes = require("./routes/paymentManagmentRoutes");
 const cors = require('cors');
 
 
@@ -23,7 +24,7 @@ app.use("/transactions", transactionRoutes);
 app.use("/balance", balanceRoute);
 app.use("/user", userRoute);
 app.use("/verification", verificationRoutes);
-
+app.use("/payment-managment", paymentManagementRoutes);
 
 
 setUpSwagger(app)

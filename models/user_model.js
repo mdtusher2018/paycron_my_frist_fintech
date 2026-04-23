@@ -23,6 +23,10 @@ const UserSchema = new Schema({
     postal_code: { type: String, required: false },
     country: { type: String, required: false },
   },
+  stripeCustomerId:{
+    type: String,
+    required: false
+  },
 
 
 
