@@ -37,39 +37,6 @@ router.post(
 );
 
 
-// ======================================================
-// 2️⃣ SAVE PAYMENT METHOD
-// ======================================================
-/**
- * @swagger
- * /payment-managment/save:
- *   post:
- *     summary: Save payment method after SetupIntent confirmation
- *     tags:
- *       - Cards
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               paymentMethodId:
- *                 type: string
- *                 example: pm_123456789
- *     responses:
- *       200:
- *         description: Card saved successfully
- *       400:
- *         description: Invalid request
- */
-router.post(
-  "/save",
-  authrized,
-  cardController.savePaymentMethod
-);
 
 
 // ======================================================

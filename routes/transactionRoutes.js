@@ -211,4 +211,46 @@ router.post('/requests-reject', authrized, transactionController.rejectRequest);
 
 
 
+
+/**
+ * @swagger
+ * /transactions/pay-with-saved-card:
+ *   post:
+ *     summary: Pay with a saved card
+ *     tags:
+ *       - Transactions
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       description: Deposit details
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 example: 1000
+ *               payment_method:
+ *                 type: string
+ *                 example: Identifier of the saved card payment method (e.g., pm_1KmXxx123)
+ *     responses:
+ *       200:
+ *         description: Webhook received and processed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 received:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Webhook signature verification failed
+ */
+router.post("/pay-with-saved-card", authrized, transactionController.payWithSavedCard);
+
+
+
 module.exports = router;

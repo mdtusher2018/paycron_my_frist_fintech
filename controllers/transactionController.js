@@ -456,3 +456,89 @@ exports.rejectRequest = async (req, res) => {
     });
   }
 };
+
+
+
+
+// Pay with saved card
+exports.payWithSavedCard = async (req, res) => {
+  const { amount, payment_method } = req.body;
+  const userId = req.user.id;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    if (!amount || amount <= 0) {
+      throw new Error("Invalid amount");
+    }
+
+    if (!payment_method) {
+      throw new Error("Payment method is required");
+    }
+
+    const user = await User.findById(userId).session(session);
+    if (!user) throw new Error("User not found");
+
+    // ✅ 1. Create + Confirm PaymentIntent instantly
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100,
+      currency: "usd",
+      customer: user.stripeCustomerId, // ⚠️ REQUIRED
+      payment_method: payment_method,
+      off_session: true,
+      confirm: true,
+      metadata: { user_id: userId },
+    });
+
+    // ✅ 2. Update balance immediately (no webhook)
+    let balance = await balanceController.getBalanceForSession(userId, session);
+
+    if (!balance) {
+      balance = await balanceController.createBalanceForSession(
+        userId,
+        amount,
+        session
+      );
+    } else {
+      balance.balance_amount += amount;
+      await balance.save({ session });
+    }
+
+    // ✅ 3. Save transaction
+    await Transaction.create(
+      [
+        {
+          sender: userId,
+          receiver: userId,
+          transaction_type: "Deposit",
+          amount,
+          status: "Completed",
+          payment_method: "Saved Card",
+          paymentIntentId: paymentIntent.id,
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      status: true,
+      message: "Payment successful",
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Saved card payment error:", error);
+
+    return res.status(400).json({
+      status: false,
+      message: error.message || "Payment failed",
+    });
+  }
+};
+

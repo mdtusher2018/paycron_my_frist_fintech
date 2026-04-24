@@ -46,60 +46,6 @@ exports.createSetupIntent = async (req, res) => {
   }
 };
 
-
-// ======================================================
-// 2️⃣ SAVE PAYMENT METHOD (ATTACH CARD SAFELY)
-// ======================================================
-exports.savePaymentMethod = async (req, res) => {
-  try {
-    const { paymentMethodId } = req.body;
-
-    if (!paymentMethodId) {
-      return res.status(400).json({ message: "paymentMethodId is required" });
-    }
-
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (!user.stripeCustomerId) {
-      return res.status(400).json({ message: "Stripe customer missing" });
-    }
-
-    // Prevent duplicate attach errors
-    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-
-    if (paymentMethod.customer !== user.stripeCustomerId) {
-      await stripe.paymentMethods.attach(paymentMethodId, {
-        customer: user.stripeCustomerId,
-      });
-    }
-
-    // Save default card in Stripe
-    await stripe.customers.update(user.stripeCustomerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId,
-      },
-    });
-
-    // Save in DB
-    user.defaultPaymentMethod = paymentMethodId;
-    await user.save();
-
-    return res.status(200).json({
-      message: "Payment method saved successfully",
-    });
-
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-
-
 // ======================================================
 // 3️⃣ GET SAVED CARDS
 // ======================================================
