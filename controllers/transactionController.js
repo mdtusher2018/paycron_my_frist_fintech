@@ -369,6 +369,9 @@ exports.getReceivedRequests = async (req, res) => {
       .populate('sender', 'email role')
       .populate('receiver', 'email role'); // optional, include receiver info too
 
+
+console.log("Received Requests:", receivedRequests);
+
     return res.status(200).json({
       status: true,
       requests: receivedRequests,
